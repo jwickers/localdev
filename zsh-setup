@@ -1,0 +1,11 @@
+# use this script to load the completion for the ZSH shell
+# and alias the debug build
+# invoke with: source zsh-setup
+export fpath=($fpath $(pwd)/comp)
+export PS1="${PS1:-} (comp)$ "
+alias localdev=$(pwd)/target/debug/localdev
+
+mkdir -p comp && \
+cargo run -- completion --shell zsh > comp/_localdev && \
+autoload -Uz compinit && \
+compinit
