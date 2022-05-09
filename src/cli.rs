@@ -42,7 +42,7 @@ pub enum Commands {
         #[clap(default_value="http://localhost:3000")]
         default_target: String,
         /// The websocket proxy, eg: --ws ws:localhost:3000, added by default
-        #[clap(short, long, default_value="localhost:3000")]
+        #[clap(short, long, default_value="/ws:localhost:3000")]
         ws: String,
         /// Other proxies, for example for a backend: api=http://localhost:8080 or api:8080
         #[clap(short, long)]

@@ -55,9 +55,14 @@ fn print_server(server_name: &str, server_name_to_proxies: &HashMap<String, Hash
     let proxies_map = server_name_to_proxies.get(server_name).unwrap();
     let mut proxies: Vec<&String> = proxies_map.keys().collect();
     proxies.sort();
+    // align the output according to the longest location
+    let l = proxies.iter().map(|x| x.len()).max().unwrap();
     for location in proxies {
-        let target = proxies_map.get(location).unwrap();
-        println!("     🚀 {} => {}", location.green(), target.blue());
+        let target = proxies_map.get(location).unwrap().trim().trim_matches('/');
+        let location = location.trim().trim_matches('/');
+        // padd the location to the longest location l
+        let location = format!("/{:<l$}", location, l = l);
+        println!("     🚀 {}=> {}", location.green(), target.blue());
     }
 }
 
@@ -80,24 +85,33 @@ fn print_completer<G: Generator>(generator: G) {
     generate(generator, &mut app, name, &mut std::io::stdout());
 }
 
+/// Write helper for the proxy location header
+fn write_location_header<T: std::io::Write>(f: &mut BufWriter<T>, location: &str, is_websocket: bool) {
+    f.write_all(b"  location ").unwrap();
+    if !location.starts_with("/") {
+        f.write_all(b"/").unwrap();
+    }
+    write!(f, "{}", location).unwrap();
+    if !is_websocket && !location.ends_with("/") {
+        f.write_all(b"/").unwrap();
+    }
+    f.write_all(b" {\n").unwrap();
+}
+
 /// Write helper for the proxy section
 fn write_proxy<T: std::io::Write>(f: &mut BufWriter<T>, location: &str, target: &str) {
-    if location.starts_with("/") {
-        write!(f, "  location {} {{\n", location).unwrap();
-    } else {
-        write!(f, "  location /{} {{\n", location).unwrap();
+    write_location_header(f, location, false);
+    write!(f,     "      proxy_pass {}", target).unwrap();
+    if !target.ends_with("/") {
+        f.write_all(b"/").unwrap();
     }
-    write!(f,     "      proxy_pass {};\n", target).unwrap();
+    f.write_all(b";\n").unwrap();
     f.write_all(b"  }\n").unwrap();
 }
 
 /// Write helper for the websocket proxy section
 fn write_websocket_proxy<T: std::io::Write>(f: &mut BufWriter<T>, location: &str, name: &str) {
-    if location.starts_with("/") {
-        write!(f, "  location {} {{\n", location).unwrap();
-    } else {
-        write!(f, "  location /{} {{\n", location).unwrap();
-    }
+    write_location_header(f, location, true);
     f.write_all(b"    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n").unwrap();
     f.write_all(b"    proxy_set_header Host $host;\n").unwrap();
     write!(f,    "    proxy_pass http://ws-backend-{};\n", name).unwrap();
@@ -458,6 +472,7 @@ fn main() {
                 // add the upstream websocket server
                 if ws_l.is_some() && ws_t.is_some() {
                     write_websocket_upstream(&mut f, ws_t.as_deref().unwrap(), &name);
+                    proxies.insert(ws_l.unwrap(), format!("ws-backend-{}", &name));
                 }
 
                 // done writing

@@ -61,16 +61,19 @@ Why not `.local` ?
 
 ## Using Websockets for HMR
 
-To proxy websockets use the `--ws` or `-w` flag during the `add` command, for example if the HMR
+By default this sets up a proxy for `wss://my-app.localdev/ws` to `localhost:3000`.
+
+To setup a different proxy use the `--ws` or `-w` flag during the `add` command, for example if the HMR
 server runs on port 3000 so `ws://localhost:3000/ws` you can do:
 ```
-localdev add test --ws ws:3000
+$ localdev add test --ws ws:3000
 ```
 
 Then the HMR must be configured to tell the client to use the proper URL.
 
-For [Vite](https://vitejs.dev/config/#server-hmr), you have to set both the port and the path:
-```json
+For [Vite](https://vitejs.dev/config/#server-hmr), you have to set both the port and the path in
+the `vite.config.js` (or the Vite section of `svelte.config.js`):
+```javascript
   server: {
     hmr: {
       path: '/ws',
@@ -79,10 +82,30 @@ For [Vite](https://vitejs.dev/config/#server-hmr), you have to set both the port
   }
 ```
 
+Or you may use a different port for that application:
+```javascript
+  server: {
+    port: 3010,
+    hmr: {
+      path: '/ws',
+      clientPort: 443
+    }
+  }
+```
+
+And use:
+```
+$ localdev add my-vite-app -p :3010 -w ws:localhost:3010
+```
+
 For [React](https://create-react-app.dev/docs/advanced-configuration/) apps simply use an environment variable `WDS_SOCKET_PORT=443`, this goes in the
 `package.json` on the start script:
-```json
+```javascript
+{
+    ...
     "start": "WDS_SOCKET_PORT=443 react-scripts start",
+    ...
+}
 ```
 
 ## Usage
@@ -94,8 +117,8 @@ For [React](https://create-react-app.dev/docs/advanced-configuration/) apps simp
   $ localdev
 
    🚦 https://test.localdev
-     🚀 /  => http://localhost:3000
-     🚀 /api  => http://localhost:8080
+     🚀 /      => http://localhost:3000
+     🚀 /api   => http://localhost:8080
      🚀 /api2  => http://localhost:8081
 
   ```
@@ -106,8 +129,8 @@ For [React](https://create-react-app.dev/docs/advanced-configuration/) apps simp
   $ localdev find my-app
 
    🚦 https://test.localdev
-     🚀 /  => http://localhost:3000
-     🚀 /api  => http://localhost:8080
+     🚀 /      => http://localhost:3000
+     🚀 /api   => http://localhost:8080
      🚀 /api2  => http://localhost:8081
 
   ```
@@ -127,14 +150,16 @@ http://localhost:3000
     * `-p :3000` equivalent to `/:3000` for most webapps running a dev server on port 3000
     * `-p api:8080` for proxying all requests to `/api` to `http://localhost:8080`
     * `-p api:8080/api` for proxying all requests to `/api` to `http://localhost:8080/api`
+  * `-w` or `--ws` to define the websocket proxy (defaults to `/ws` -> `localhost:3000`)
   * `-o` or `--open` to immediately open the root URL in a browser
+  * `--force` overwrite if the target configuration file already exists
 
 
   ```
   $ localdev add my-app :3001 -p api:8080 -p api2:8081/api -o
 
    🚦 https://my-app.localdev
-     🚀 /  => http://localhost:3001
+     🚀 /     => http://localhost:3001
      🚀 /api  => http://localhost:8080
      🚀 /api2 => http://localhost:8081/api
   ```
