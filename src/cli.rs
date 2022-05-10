@@ -19,8 +19,7 @@ pub struct Args {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// List all the servers and their proxies
-    List {
-    },
+    List {},
     /// Find a specific server and its proxies
     Find {
         /// Name of the server to find, will also try with adding a local domain.
@@ -39,10 +38,10 @@ pub enum Commands {
         /// Name of the server to configure, if found will update the config else will create a new config. Auto adds a .localdev domain.
         server_name: String,
         /// The default (/) proxy target, eg: http://localhost:3000
-        #[clap(default_value="http://localhost:3000")]
+        #[clap(default_value = "http://localhost:3000")]
         default_target: String,
         /// The websocket proxy, eg: --ws ws:localhost:3000, added by default
-        #[clap(short, long, default_value="/ws:localhost:3000")]
+        #[clap(short, long, default_value = "/ws:localhost:3000")]
         ws: String,
         /// Other proxies, for example for a backend: api=http://localhost:8080 or api:8080
         #[clap(short, long)]
@@ -60,12 +59,10 @@ pub enum Commands {
         server_name: String,
     },
     /// Reload nginx config
-    Reload {
-    },
+    Reload {},
     /// Generate completion script
     Completion {
-        #[clap(long,short,arg_enum)]
+        #[clap(long, short, arg_enum)]
         shell: Shell,
     },
 }
-

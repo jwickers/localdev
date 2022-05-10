@@ -1,8 +1,8 @@
 use clap::{IntoApp, Parser};
 use clap_complete::{generate, Generator};
-use regex::Regex;
-use std::{collections::HashMap, path::Path, io::BufWriter, io::Write};
 use colored::*;
+use regex::Regex;
+use std::{collections::HashMap, io::BufWriter, io::Write, path::Path};
 mod cli;
 
 fn mkcert(nginx_dir_path: &Path, name: &str, verbose: bool) {
@@ -12,7 +12,10 @@ fn mkcert(nginx_dir_path: &Path, name: &str, verbose: bool) {
     let dir_p = nginx_dir_path.display();
     let output = std::process::Command::new("sh")
         .arg("-c")
-        .arg(format!("mkcert -cert-file {}/{}.pem -key-file {}/{}-key.pem {}", dir_p, name, dir_p, name, name))
+        .arg(format!(
+            "mkcert -cert-file {}/{}.pem -key-file {}/{}-key.pem {}",
+            dir_p, name, dir_p, name, name
+        ))
         .output()
         .unwrap();
     // print the output
@@ -46,8 +49,10 @@ fn open_server(server_name: &str) {
     webbrowser::open(&url).expect("failed to open URL");
 }
 
-
-fn print_server(server_name: &str, server_name_to_proxies: &HashMap<String, HashMap<String, String>>) {
+fn print_server(
+    server_name: &str,
+    server_name_to_proxies: &HashMap<String, HashMap<String, String>>,
+) {
     println!("");
     let s = format!("https://{}", server_name);
     println!(" 🚦 {}", s.bold());
@@ -70,7 +75,9 @@ fn print_server(server_name: &str, server_name_to_proxies: &HashMap<String, Hash
 fn find_server_name(server_name: &str, server_names: &[String]) -> Option<String> {
     let mut name_local: String = server_name.to_owned();
     name_local.push_str(".localdev");
-    let found = server_names.iter().find(|n| n == &&server_name || n == &&name_local);
+    let found = server_names
+        .iter()
+        .find(|n| n == &&server_name || n == &&name_local);
     match found {
         Some(n) => Some(n.to_owned()),
         None => None,
@@ -86,7 +93,11 @@ fn print_completer<G: Generator>(generator: G) {
 }
 
 /// Write helper for the proxy location header
-fn write_location_header<T: std::io::Write>(f: &mut BufWriter<T>, location: &str, is_websocket: bool) {
+fn write_location_header<T: std::io::Write>(
+    f: &mut BufWriter<T>,
+    location: &str,
+    is_websocket: bool,
+) {
     f.write_all(b"  location ").unwrap();
     if !location.starts_with("/") {
         f.write_all(b"/").unwrap();
@@ -101,7 +112,7 @@ fn write_location_header<T: std::io::Write>(f: &mut BufWriter<T>, location: &str
 /// Write helper for the proxy section
 fn write_proxy<T: std::io::Write>(f: &mut BufWriter<T>, location: &str, target: &str) {
     write_location_header(f, location, false);
-    write!(f,     "      proxy_pass {}", target).unwrap();
+    write!(f, "      proxy_pass {}", target).unwrap();
     if !target.ends_with("/") {
         f.write_all(b"/").unwrap();
     }
@@ -112,12 +123,15 @@ fn write_proxy<T: std::io::Write>(f: &mut BufWriter<T>, location: &str, target: 
 /// Write helper for the websocket proxy section
 fn write_websocket_proxy<T: std::io::Write>(f: &mut BufWriter<T>, location: &str, name: &str) {
     write_location_header(f, location, true);
-    f.write_all(b"    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n").unwrap();
+    f.write_all(b"    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n")
+        .unwrap();
     f.write_all(b"    proxy_set_header Host $host;\n").unwrap();
-    write!(f,    "    proxy_pass http://ws-backend-{};\n", name).unwrap();
+    write!(f, "    proxy_pass http://ws-backend-{};\n", name).unwrap();
     f.write_all(b"    proxy_http_version 1.1;\n").unwrap();
-    f.write_all(b"    proxy_set_header Upgrade $http_upgrade;\n").unwrap();
-    f.write_all(b"    proxy_set_header Connection \"upgrade\";\n").unwrap();
+    f.write_all(b"    proxy_set_header Upgrade $http_upgrade;\n")
+        .unwrap();
+    f.write_all(b"    proxy_set_header Connection \"upgrade\";\n")
+        .unwrap();
     f.write_all(b"  }\n").unwrap();
 }
 
@@ -299,9 +313,7 @@ fn main() {
     // only care about the server names ending with .localdev domains
     server_names = server_names
         .into_iter()
-        .filter(|s| {
-            s.ends_with(".localdev")
-        })
+        .filter(|s| s.ends_with(".localdev"))
         .collect();
     // remove duplicates from server_names
     server_names.sort();
@@ -310,7 +322,7 @@ fn main() {
         Some(cli::Commands::Completion { shell }) => {
             print_completer(shell);
             return;
-        },
+        }
         Some(cli::Commands::Reload {}) => {
             reload_nginx(args.verbose > 0);
             return;
@@ -364,7 +376,14 @@ fn main() {
             }
             return;
         }
-        Some(cli::Commands::Add { server_name, default_target, ws, proxy, force, open }) => {
+        Some(cli::Commands::Add {
+            server_name,
+            default_target,
+            ws,
+            proxy,
+            force,
+            open,
+        }) => {
             let found = find_server_name(&server_name, server_names.as_slice());
             match found {
                 Some(f) => {
@@ -386,7 +405,7 @@ fn main() {
             }
             let (ws_l, ws_t) = match websocket {
                 Some((w, l)) => (Some(w), Some(l)),
-                None => (None, None)
+                None => (None, None),
             };
 
             // if there is no domain auto add the .devlocal to server_name
@@ -456,7 +475,8 @@ fn main() {
                 write!(f, "  server_name {};\n", name).unwrap();
                 write!(f, "  ssl_certificate      {}.pem;\n", name).unwrap();
                 write!(f, "  ssl_certificate_key  {}-key.pem;\n", name).unwrap();
-                f.write_all(b"  ssl_session_cache    shared:SSL:1m;\n").unwrap();
+                f.write_all(b"  ssl_session_cache    shared:SSL:1m;\n")
+                    .unwrap();
                 f.write_all(b"  ssl_session_timeout  5m;\n").unwrap();
                 f.write_all(b"  ssl_ciphers  HIGH:!aNULL:!MD5;\n").unwrap();
                 f.write_all(b"  ssl_prefer_server_ciphers  on;\n").unwrap();
