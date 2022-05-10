@@ -44,7 +44,7 @@ fn reload_nginx(verbose: bool) {
 
 fn open_server(server_name: &str) {
     let url = format!("https://{}", server_name);
-    println!("");
+    println!();
     println!(" ⚡ Opening {}", url);
     webbrowser::open(&url).expect("failed to open URL");
 }
@@ -53,7 +53,7 @@ fn print_server(
     server_name: &str,
     server_name_to_proxies: &HashMap<String, HashMap<String, String>>,
 ) {
-    println!("");
+    println!();
     let s = format!("https://{}", server_name);
     println!(" 🚦 {}", s.bold());
     // sort the proxies by location
@@ -77,11 +77,8 @@ fn find_server_name(server_name: &str, server_names: &[String]) -> Option<String
     name_local.push_str(".localdev");
     let found = server_names
         .iter()
-        .find(|n| n == &&server_name || n == &&name_local);
-    match found {
-        Some(n) => Some(n.to_owned()),
-        None => None,
-    }
+        .find(|n| **n == server_name || **n == name_local);
+    found.map(|n| n.to_owned())
 }
 
 /// Generate the auto complete for the CLI
@@ -99,11 +96,11 @@ fn write_location_header<T: std::io::Write>(
     is_websocket: bool,
 ) {
     f.write_all(b"  location ").unwrap();
-    if !location.starts_with("/") {
+    if !location.starts_with('/') {
         f.write_all(b"/").unwrap();
     }
     write!(f, "{}", location).unwrap();
-    if !is_websocket && !location.ends_with("/") {
+    if !is_websocket && !location.ends_with('/') {
         f.write_all(b"/").unwrap();
     }
     f.write_all(b" {\n").unwrap();
@@ -113,7 +110,7 @@ fn write_location_header<T: std::io::Write>(
 fn write_proxy<T: std::io::Write>(f: &mut BufWriter<T>, location: &str, target: &str) {
     write_location_header(f, location, false);
     write!(f, "      proxy_pass {}", target).unwrap();
-    if !target.ends_with("/") {
+    if !target.ends_with('/') {
         f.write_all(b"/").unwrap();
     }
     f.write_all(b";\n").unwrap();
@@ -126,7 +123,7 @@ fn write_websocket_proxy<T: std::io::Write>(f: &mut BufWriter<T>, location: &str
     f.write_all(b"    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n")
         .unwrap();
     f.write_all(b"    proxy_set_header Host $host;\n").unwrap();
-    write!(f, "    proxy_pass http://ws-backend-{};\n", name).unwrap();
+    writeln!(f, "    proxy_pass http://ws-backend-{};", name).unwrap();
     f.write_all(b"    proxy_http_version 1.1;\n").unwrap();
     f.write_all(b"    proxy_set_header Upgrade $http_upgrade;\n")
         .unwrap();
@@ -137,40 +134,40 @@ fn write_websocket_proxy<T: std::io::Write>(f: &mut BufWriter<T>, location: &str
 
 /// Write helper for the upstream websocket section
 fn write_websocket_upstream<T: std::io::Write>(f: &mut BufWriter<T>, upstream: &str, name: &str) {
-    write!(f, "upstream ws-backend-{} {{\n", name).unwrap();
+    writeln!(f, "upstream ws-backend-{} {{", name).unwrap();
     f.write_all(b"  ip_hash;\n").unwrap();
-    write!(f, "  server {};\n", upstream).unwrap();
+    writeln!(f, "  server {};", upstream).unwrap();
     f.write_all(b"}\n").unwrap();
 }
 
 fn parse_proxy_arg(arg: &str, with_protocol: bool) -> Option<(String, String)> {
     // split the string separated by =
-    let mut split = arg.splitn(2, "=").collect::<Vec<&str>>();
+    let mut split = arg.splitn(2, '=').collect::<Vec<&str>>();
     if split.len() < 2 {
         // can also split on :
-        split = arg.splitn(2, ":").collect::<Vec<&str>>();
+        split = arg.splitn(2, ':').collect::<Vec<&str>>();
     }
     if split.len() == 2 {
         let port_target_rx = Regex::new(r"^:?([0-9]+.*)$").unwrap();
         let mut location = split[0].trim().to_string();
-        if !location.starts_with("/") {
-            location = String::from(format!("/{}", location));
+        if !location.starts_with('/') {
+            location = format!("/{}", location);
         }
         let mut target = split[1].trim().to_string();
         // if the target matches port_target_rx
         if let Some(caps) = port_target_rx.captures(&target) {
             let port = caps.get(1).unwrap().as_str();
             if with_protocol {
-                target = String::from(format!("http://localhost:{}", port));
+                target = format!("http://localhost:{}", port);
             } else {
-                target = String::from(format!("localhost:{}", port));
+                target = format!("localhost:{}", port);
             }
         }
 
-        return Some((location, target));
+        Some((location, target))
     } else {
         println!("❗ Invalid proxy: {}", arg);
-        return None;
+        None
     }
 }
 
@@ -178,12 +175,11 @@ fn main() {
     let args = cli::Args::parse();
 
     // a list of possible paths for the file, could be /etc/nginx/nginx.conf or /usr/local/etc/nginx/nginx.conf
-    let paths: Vec<&str>;
-    if let Some(path) = args.nginx_path.as_deref() {
-        paths = vec![&path];
+    let paths: Vec<&str> = if let Some(path) = args.nginx_path.as_deref() {
+        vec![path]
     } else {
-        paths = vec!["/etc/nginx/nginx.conf", "/usr/local/etc/nginx/nginx.conf"];
-    }
+        vec!["/etc/nginx/nginx.conf", "/usr/local/etc/nginx/nginx.conf"]
+    };
     // find the first file that exists
     let path = paths.iter().find(|p| {
         let path = Path::new(p);
@@ -298,15 +294,13 @@ fn main() {
                         }
                     }
                 }
-                if line.starts_with("}") {
-                    if location.is_some() {
-                        location = None;
-                    }
+                if line.starts_with('}') && location.is_some() {
+                    location = None;
                 }
             }
             // if server_name str is initialized
-            if server_name.is_some() {
-                server_name_to_proxies.insert(server_name.unwrap().to_owned(), proxies);
+            if let Some(name) = server_name {
+                server_name_to_proxies.insert(name.to_owned(), proxies);
             }
         }
     }
@@ -420,7 +414,7 @@ fn main() {
             mkcert(nginx_dir_path, &name, args.verbose > 0);
 
             let mut proxies = HashMap::new();
-            proxies.insert(String::from("/"), default_target.clone());
+            proxies.insert(String::from("/"), default_target);
 
             // test proxy arg
             if !proxy.is_empty() {
@@ -459,7 +453,7 @@ fn main() {
                 f.write_all(b"server {\n").unwrap();
                 f.write_all(b"  listen 80;\n").unwrap();
                 f.write_all(b"  listen [::]:80;\n").unwrap();
-                write!(f, "  server_name {};\n", name).unwrap();
+                writeln!(f, "  server_name {};", name).unwrap();
                 for (location, target) in proxies.iter() {
                     write_proxy(&mut f, location, target);
                 }
@@ -472,9 +466,9 @@ fn main() {
                 // write the SSL version
                 f.write_all(b"server {\n").unwrap();
                 f.write_all(b"  listen 443 ssl;\n").unwrap();
-                write!(f, "  server_name {};\n", name).unwrap();
-                write!(f, "  ssl_certificate      {}.pem;\n", name).unwrap();
-                write!(f, "  ssl_certificate_key  {}-key.pem;\n", name).unwrap();
+                writeln!(f, "  server_name {};", name).unwrap();
+                writeln!(f, "  ssl_certificate      {}.pem;", name).unwrap();
+                writeln!(f, "  ssl_certificate_key  {}-key.pem;", name).unwrap();
                 f.write_all(b"  ssl_session_cache    shared:SSL:1m;\n")
                     .unwrap();
                 f.write_all(b"  ssl_session_timeout  5m;\n").unwrap();
@@ -490,16 +484,16 @@ fn main() {
                 f.write_all(b"}\n").unwrap();
 
                 // add the upstream websocket server
-                if ws_l.is_some() && ws_t.is_some() {
+                if let Some(ws_l) = ws_l {
                     write_websocket_upstream(&mut f, ws_t.as_deref().unwrap(), &name);
-                    proxies.insert(ws_l.unwrap(), format!("ws-backend-{}", &name));
+                    proxies.insert(ws_l, format!("ws-backend-{}", &name));
                 }
 
                 // done writing
                 f.flush().unwrap();
             }
 
-            server_name_to_path.insert(name.to_owned(), new_path.clone());
+            server_name_to_path.insert(name.to_owned(), new_path);
             if args.verbose > 0 {
                 println!(">> Wrote new configuration for server: {}", name);
             }
